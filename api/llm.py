@@ -1,33 +1,24 @@
-import re
-import os
 from openai import OpenAI
+import os
 
 class LLMHandler:
     def __init__(self, model):
         self.model = model
-        self._client = None
-
-    @property
-    def client(self):
-        if self._client is None:
-            self._client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        return self._client
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def find_best_match(self, query, search_results):
         prompt = f"""Query: {query}
 
-Results:
+Search Results:
 {self._format_results(search_results)}
 
 Based on the query and the search results, which result is the best match? 
 Return your response in the following format:
-Best match: [index of the best match]
-Explanation: [Your explanation here]
-
-If you can't determine a best match, explain why and suggest how to improve the query."""
+Best match: [index of the best match (1-based)]
+Brief explanation: [A short explanation of why this is the best match]"""
 
         response = self.client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant designed to find the best match for a given query among search results."},
                 {"role": "user", "content": prompt}
@@ -37,20 +28,16 @@ If you can't determine a best match, explain why and suggest how to improve the 
         content = response.choices[0].message.content
         return self._parse_response(content, search_results)
 
-
     def _format_results(self, search_results):
-        formatted_results = ""
-        for i, (doc, metadata) in enumerate(zip(search_results['documents'][0], search_results['metadatas'][0])):
-            formatted_results += f"{i+1}. Document: {doc}\nMetadata: {metadata}\n\n"
-        return formatted_results
+        return "\n\n".join([f"{i+1}. {result['text']}" for i, result in enumerate(search_results)])
 
     def _parse_response(self, content, search_results):
-        match = re.search(r'Best match: (\d+)', content)
-        if match:
-            index = int(match.group(1)) - 1  # Convert to 0-based index
-            if 0 <= index < len(search_results['metadatas'][0]):
-                best_match = search_results['metadatas'][0][index]
-                return best_match['video_id'], best_match['start_time'], content
+        lines = content.split('\n')
+        best_match_index = next((int(line.split(':')[1].strip()) for line in lines if line.startswith('Best match:')), None)
+        explanation = next((line.split(':')[1].strip() for line in lines if line.startswith('Brief explanation:')), "No explanation provided.")
+
+        if best_match_index and 1 <= best_match_index <= len(search_results):
+            best_match = search_results[best_match_index - 1]
+            return best_match['metadata']['video_id'], best_match['metadata'].get('start_time', '00:00:00'), explanation
         
-        # If no valid match found, return None values with the explanation
-        return None, None, content
+        return None, None, "No clear best match found."

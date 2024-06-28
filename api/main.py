@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 import os
 import logging
 from .embedding import EmbeddingGenerator
-from .search import ChromaDBSearch
 from .llm import LLMHandler
+from .search import PineconeSearch
 
 load_dotenv()
 
@@ -42,13 +42,13 @@ def verify_api_key(api_key: str = Security(api_key_header)) -> str:
     return api_key
 
 def initialize_components():
-    global embedding_generator, chroma_search, llm_handler
+    global embedding_generator, pinecone_search, llm_handler
     if embedding_generator is None:
         model = "text-embedding-3-large"
         embedding_generator = EmbeddingGenerator(model)
-        chroma_search = ChromaDBSearch(embedding_generator.collection)
+        pinecone_search = PineconeSearch(embedding_generator.index)
         llm_handler = LLMHandler(model)
-    return embedding_generator, chroma_search, llm_handler
+    return embedding_generator, pinecone_search, llm_handler
 
 def format_timestamp(timestamp: str) -> str:
     parts = timestamp.split(":")
@@ -81,12 +81,12 @@ def process_search_result(video_id, timestamp, output_text):
 
 app = create_app()
 
+_embedding_generator, _pinecone_search, _llm_handler = initialize_components()
 @app.post("/search/", tags=["search"])
 async def search(query: Query, api_key: str = Depends(verify_api_key)):
     try:
-        _embedding_generator, _chroma_search, _llm_handler = initialize_components()
         query_embedding = _embedding_generator.generate_embedding(query.text)
-        search_results = _chroma_search.find_nearest(query_embedding)
+        search_results = _pinecone_search.find_nearest(query_embedding)
         video_id, timestamp, output_text = _llm_handler.find_best_match(query.text, search_results)
         return process_search_result(video_id, timestamp, output_text)
     except Exception as e:
