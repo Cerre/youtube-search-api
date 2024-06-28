@@ -1,0 +1,6 @@
+__pycache__
+*.pyc
+.env
+venv/
+/chroma
+/chroma_backup

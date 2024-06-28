@@ -1,0 +1,22 @@
+# File: tests/test_llm.py
+
+import pytest
+from api.llm import LLMHandler
+
+def test_find_best_match(mocker):
+    mock_openai = mocker.patch("api.llm.OpenAI")
+    mock_openai.return_value.chat.completions.create.return_value.choices = [
+        type('obj', (object,), {'message': type('msg', (object,), {'content': 'Best match: 1\nExplanation: Test explanation'})()})()
+    ]
+    
+    llm_handler = LLMHandler("test-model")
+    search_results = {
+        "documents": [["Test document"]],
+        "metadatas": [{"video_id": "test_video", "start_time": "00:01:00"}]
+    }
+    
+    video_id, timestamp, explanation = llm_handler.find_best_match("test query", search_results)
+    
+    assert video_id == "test_video"
+    assert timestamp == "00:01:00"
+    assert "Test explanation" in explanation
