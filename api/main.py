@@ -46,7 +46,6 @@ async def add_security_headers(request, call_next):
 def verify_api_key(api_key: str = Depends(api_key_header)) -> str:
     import hashlib
     hashed_key = hashlib.sha256(api_key.encode()).hexdigest()
-    print(hashed_key)
     if not api_key or hashed_key != API_KEY_HASH:
         logger.warning(f"Invalid API key attempt: {api_key}")
         raise HTTPException(status_code=403, detail="Could not validate API key")
