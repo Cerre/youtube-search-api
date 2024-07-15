@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 openai
-chromadb
+pinecone
 python-multipart
 pytest
 pytest-asyncio
