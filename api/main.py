@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -35,12 +35,26 @@ app = FastAPI(
 )
 
 @app.middleware("http")
-async def add_security_headers(request, call_next):
+async def add_security_headers_and_log_requests(request: Request, call_next):
+    # Log request details
+    start_time = time.time()
+    logging.info(f"Request received: {request.method} {request.url}")
+    logging.info(f"Client IP: {request.client.host}")
+
+    # Process the request
     response = await call_next(request)
+
+    # Add security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    # Log response details
+    process_time = time.time() - start_time
+    logging.info(f"Response status: {response.status_code}")
+    logging.info(f"Process time: {process_time:.2f} seconds")
+
     return response
 
 def verify_api_key(api_key: str = Depends(api_key_header)) -> str:
