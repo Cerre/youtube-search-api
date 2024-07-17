@@ -170,3 +170,28 @@ async def root():
         </body>
     </html>
     """
+
+@app.post("/search/", tags=["search"], dependencies=[Depends(verify_api_key)])
+async def search(query: Query):
+    try:
+        start_time = time.time()
+        embedding_generator, pinecone_search, llm_handler = initialize_components()
+        
+        logger.info(f"Starting embedding generation for query: {query.text}")
+        query_embedding = await asyncio.to_thread(embedding_generator.generate_embedding, query.text)
+        logger.info(f"Embedding generation completed in {time.time() - start_time:.2f} seconds")
+        
+        logger.info("Starting Pinecone search")
+        search_results = await asyncio.to_thread(pinecone_search.find_nearest, query_embedding)
+        logger.info(f"Pinecone search completed in {time.time() - start_time:.2f} seconds")
+        
+        logger.info("Starting LLM processing")
+        video_id, timestamp, output_text = await asyncio.to_thread(llm_handler.find_best_match, query.text, search_results)
+        logger.info(f"LLM processing completed in {time.time() - start_time:.2f} seconds")
+        
+        result = process_search_result(video_id, timestamp, output_text)
+        logger.info(f"Total processing time: {time.time() - start_time:.2f} seconds")
+        return result
+    except Exception as e:
+        logger.error(f"An error occurred during search: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
