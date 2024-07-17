@@ -130,6 +130,14 @@ def process_search_result(video_id, timestamp, output_text):
 import time
 import asyncio
 
+@app.get("/version-check")
+async def version_check():
+    return {
+        "version": "2.0",  # Update this with each deployment
+        "timestamp": int(time.time()),
+        "formatted_time": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    }
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return """
