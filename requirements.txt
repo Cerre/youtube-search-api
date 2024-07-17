@@ -2,7 +2,7 @@ fastapi
 uvicorn
 openai
 pinecone
-git+https://github.com/cerre/youtube-search-api.git@v0.1.1
+git+https://github.com/cerre/youtube-search-api.git@v0.1.2
 python-multipart
 pytest
 pytest-asyncio
