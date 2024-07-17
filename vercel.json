@@ -3,10 +3,7 @@
     {
       "src": "api/main.py",
       "use": "@vercel/python",
-      "config": { 
-        "maxLambdaSize": "15mb",
-        "zeroConfig": true
-      }
+      "config": { "maxLambdaSize": "15mb" }
     }
   ],
   "routes": [
@@ -14,14 +11,5 @@
       "src": "/(.*)",
       "dest": "api/main.py"
     }
-  ],
-  "build": {
-    "env": {
-      "PYTHONUNBUFFERED": "1"
-    }
-  },
-  "env": {
-    "DISABLE_BUILD_CACHE": "1"
-  },
-  "buildCommand": "chmod +x build.sh && ./build.sh"
+  ]
 }
