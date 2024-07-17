@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -74,7 +75,29 @@ def initialize_components():
         llm_handler = LLMHandler(model)
     return embedding_generator, pinecone_search, llm_handler
 
-def format_timestamp(timestamp: str) -> str:
+def format_timestamp(timestamp: str) -> int:
+    parts = timestamp.split(":")
+    if len(parts) == 3:
+        hours, minutes, seconds = map(int, parts)
+        return hours * 3600 + minutes * 60 + seconds
+    elif len(parts) == 2:
+        minutes, seconds = map(int, parts)
+        return minutes * 60 + seconds
+    else:
+        raise ValueError("Timestamp format is incorrect. Expected HH:MM:SS or MM:SS.")
+
+def format_timestamp(timestamp: str) -> int:
+    parts = timestamp.split(":")
+    if len(parts) == 3:
+        hours, minutes, seconds = map(int, parts)
+        return hours * 3600 + minutes * 60 + seconds
+    elif len(parts) == 2:
+        minutes, seconds = map(int, parts)
+        return minutes * 60 + seconds
+    else:
+        raise ValueError("Timestamp format is incorrect. Expected HH:MM:SS or MM:SS.")
+
+def format_url_timestamp(timestamp: str) -> str:
     parts = timestamp.split(":")
     formatted_parts = []
     if len(parts) == 3:
@@ -90,11 +113,12 @@ def format_timestamp(timestamp: str) -> str:
 
 def process_search_result(video_id, timestamp, output_text):
     if video_id and timestamp:
-        timestamp_formatted = format_timestamp(timestamp)
+        seconds = format_timestamp(timestamp)
+        url_timestamp = format_url_timestamp(timestamp)
         return {
             "video_id": video_id,
-            "timestamp": timestamp,
-            "url_with_timestamp": f"{youtube_url_watch}={video_id}&t={timestamp_formatted}",
+            "timestamp": seconds,
+            "url_with_timestamp": f"{youtube_url_watch}={video_id}&t={url_timestamp}",
             "explanation": output_text
         }
     else:
@@ -105,6 +129,39 @@ def process_search_result(video_id, timestamp, output_text):
 
 import time
 import asyncio
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return """
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>YouTube Search API</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+                h1 { color: #333; }
+                .button { display: inline-block; padding: 10px 20px; margin: 10px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; }
+            </style>
+        </head>
+        <body>
+            <h1>Welcome to the YouTube Search API</h1>
+            <p>This API allows you to search for YouTube videos based on text queries.</p>
+            <p>For detailed API documentation and interactive testing, please visit:</p>
+            <a href="/docs" class="button">Swagger UI</a>
+            <a href="/redoc" class="button">ReDoc</a>
+            <h2>Quick Start</h2>
+            <p>To use the API, send a POST request to the <code>/search/</code> endpoint with your query.</p>
+            <p>Example using curl:</p>
+            <pre><code>curl -X POST "https://your-api-url.com/search/" 
+     -H "Content-Type: application/json" 
+     -H "X-API-Key: your_api_key" 
+     -d '{"text": "Your search query here"}'
+            </code></pre>
+            <h2>Need Help?</h2>
+            <p>If you need assistance or have any questions, please refer to the documentation or contact our support team.</p>
+        </body>
+    </html>
+    """
 
 @app.post("/search/", tags=["search"], dependencies=[Depends(verify_api_key)])
 async def search(query: Query):
