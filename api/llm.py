@@ -18,7 +18,7 @@ Best match: [index of the best match (1-based)]
 Brief explanation: [A short explanation of why this is the best match]"""
 
         response = self.client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant designed to find the best match for a given query among search results."},
                 {"role": "user", "content": prompt}
@@ -38,6 +38,6 @@ Brief explanation: [A short explanation of why this is the best match]"""
 
         if best_match_index and 1 <= best_match_index <= len(search_results):
             best_match = search_results[best_match_index - 1]
-            return best_match['metadata']['video_id'], best_match['metadata'].get('start_time', '00:00:00'), explanation
+            return best_match['metadata']['id'], best_match['metadata'].get('start_time', '0'), explanation, best_match["metadata"]["text"]
         
         return None, None, "No clear best match found."

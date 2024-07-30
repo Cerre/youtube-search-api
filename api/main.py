@@ -70,61 +70,28 @@ def initialize_components():
     global embedding_generator, pinecone_search, llm_handler
     if embedding_generator is None:
         model = "text-embedding-3-large"
-        embedding_generator = EmbeddingGenerator(model)
+        pinecone_index_name = "johnniboi-text-embedding-3-large"
+        embedding_generator = EmbeddingGenerator(model, pinecone_index_name)
         pinecone_search = PineconeSearch(embedding_generator.index)
         llm_handler = LLMHandler(model)
     return embedding_generator, pinecone_search, llm_handler
 
-def format_timestamp(timestamp: str) -> int:
-    parts = timestamp.split(":")
-    if len(parts) == 3:
-        hours, minutes, seconds = map(int, parts)
-        return hours * 3600 + minutes * 60 + seconds
-    elif len(parts) == 2:
-        minutes, seconds = map(int, parts)
-        return minutes * 60 + seconds
-    else:
-        raise ValueError("Timestamp format is incorrect. Expected HH:MM:SS or MM:SS.")
 
-def format_timestamp(timestamp: str) -> int:
-    parts = timestamp.split(":")
-    if len(parts) == 3:
-        hours, minutes, seconds = map(int, parts)
-        return hours * 3600 + minutes * 60 + seconds
-    elif len(parts) == 2:
-        minutes, seconds = map(int, parts)
-        return minutes * 60 + seconds
-    else:
-        raise ValueError("Timestamp format is incorrect. Expected HH:MM:SS or MM:SS.")
-
-def format_url_timestamp(timestamp: str) -> str:
-    parts = timestamp.split(":")
-    formatted_parts = []
-    if len(parts) == 3:
-        if int(parts[0]) > 0:
-            formatted_parts.append(parts[0] + "h")
-        formatted_parts.append(parts[1] + "m")
-    elif len(parts) == 2:
-        formatted_parts.append(parts[0] + "m")
-    else:
-        raise ValueError("Timestamp format is incorrect. Expected HH:MM:SS or MM:SS.")
-    formatted_parts.append(parts[-1] + "s")
-    return "".join(formatted_parts)
-
-def process_search_result(video_id, timestamp, output_text):
+def process_search_result(video_id, timestamp, explanation, text):
     if video_id and timestamp:
-        seconds = format_timestamp(timestamp)
-        url_timestamp = format_url_timestamp(timestamp)
+        seconds = int(float(timestamp))
+        # url_timestamp = format_timestamp(timestamp)
         return {
             "video_id": video_id,
             "timestamp": seconds,
-            "url_with_timestamp": f"{youtube_url_watch}={video_id}&t={url_timestamp}",
-            "explanation": output_text
+            "url_with_timestamp": f"{youtube_url_watch}={video_id}&t={seconds}s",
+            "text": text,
+            "explanation": explanation
         }
     else:
         return {
             "message": "No specific match found",
-            "explanation": output_text
+            "explanation": explanation
         }
 
 import time
@@ -186,10 +153,10 @@ async def search(query: Query):
         logger.info(f"Pinecone search completed in {time.time() - start_time:.2f} seconds")
         
         logger.info("Starting LLM processing")
-        video_id, timestamp, output_text = await asyncio.to_thread(llm_handler.find_best_match, query.text, search_results)
+        video_id, timestamp, explanation, text = await asyncio.to_thread(llm_handler.find_best_match, query.text, search_results)
         logger.info(f"LLM processing completed in {time.time() - start_time:.2f} seconds")
         
-        result = process_search_result(video_id, timestamp, output_text)
+        result = process_search_result(video_id, timestamp, explanation, text)
         logger.info(f"Total processing time: {time.time() - start_time:.2f} seconds")
         return result
     except Exception as e:
