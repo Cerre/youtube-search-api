@@ -5,3 +5,4 @@ venv/
 /chroma
 /chroma_backup
 .vercel
+.log

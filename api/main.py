@@ -97,6 +97,24 @@ def process_search_result(video_id, timestamp, explanation, text):
 import time
 import asyncio
 
+def process_multiple_search_results(matched_results):
+    processed_results = []
+    for result, explanation in matched_results:
+        video_id = result['metadata'].get('id')
+        timestamp = result['metadata'].get('start_time', '0')
+        text = result['metadata'].get('text', '')
+        seconds = int(float(timestamp))
+        processed_results.append({
+            "video_id": video_id,
+            "timestamp": seconds,
+            "url_with_timestamp": f"{youtube_url_watch}={video_id}&t={seconds}s",
+            "text": text,
+            "score": result['score'],
+            "explanation": explanation
+        })
+    return {"results": processed_results}
+
+
 @app.get("/version-check")
 async def version_check():
     return {
@@ -149,7 +167,7 @@ async def search(query: Query):
         logger.info(f"Embedding generation completed in {time.time() - start_time:.2f} seconds")
         
         logger.info("Starting Pinecone search")
-        search_results = await asyncio.to_thread(pinecone_search.find_nearest, query_embedding)
+        search_results = await asyncio.to_thread(pinecone_search.find_nearest, query_embedding, n_results=5)
         logger.info(f"Pinecone search completed in {time.time() - start_time:.2f} seconds")
         
         logger.info("Starting LLM processing")
@@ -161,4 +179,29 @@ async def search(query: Query):
         return result
     except Exception as e:
         logger.error(f"An error occurred during search: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    
+@app.post("/search_multiple/", tags=["search"], dependencies=[Depends(verify_api_key)])
+async def search_multiple(query: Query):
+    try:
+        start_time = time.time()
+        embedding_generator, pinecone_search, llm_handler = initialize_components()
+        
+        logger.info(f"Starting embedding generation for query: {query.text}")
+        query_embedding = await asyncio.to_thread(embedding_generator.generate_embedding, query.text)
+        logger.info(f"Embedding generation completed in {time.time() - start_time:.2f} seconds")
+        
+        logger.info("Starting Pinecone search")
+        search_results = await asyncio.to_thread(pinecone_search.find_nearest, query_embedding, n_results=10)  # Fetch more results for LLM to choose from
+        logger.info(f"Pinecone search completed in {time.time() - start_time:.2f} seconds")
+        
+        logger.info("Starting LLM processing")
+        best_matches = await asyncio.to_thread(llm_handler.find_best_matches, query.text, search_results)
+        logger.info(f"LLM processing completed in {time.time() - start_time:.2f} seconds")
+        
+        results = process_multiple_search_results(best_matches)
+        logger.info(f"Total processing time: {time.time() - start_time:.2f} seconds")
+        return results
+    except Exception as e:
+        logger.error(f"An error occurred during multiple search: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
