@@ -167,7 +167,7 @@ async def search(query: Query):
         logger.info(f"Embedding generation completed in {time.time() - start_time:.2f} seconds")
         
         logger.info("Starting Pinecone search")
-        search_results = await asyncio.to_thread(pinecone_search.find_nearest, query_embedding, n_results=5)
+        search_results = await asyncio.to_thread(pinecone_search.find_nearest, query_embedding)
         logger.info(f"Pinecone search completed in {time.time() - start_time:.2f} seconds")
         
         logger.info("Starting LLM processing")
